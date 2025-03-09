@@ -34,6 +34,7 @@ interface DropdownItem {
   click?: () => void
 }
 
+// In the menuItems computed property
 const menuItems = computed<DropdownItem[][]>(() => [[
   {
     label: 'Profile',
@@ -44,6 +45,11 @@ const menuItems = computed<DropdownItem[][]>(() => [[
     label: 'Dashboard',
     icon: 'i-heroicons-home',
     to: '/dashboard'
+  },
+  {
+    label: 'Uploads',
+    icon: 'i-heroicons-arrow-up-tray',
+    to: '/uploads'
   },
   {
     label: 'Change Password',
