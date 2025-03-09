@@ -8,6 +8,43 @@ interface ValidationOptions {
   fileType?: 'csv' | 'xlsx' | 'xls';
 }
 
+// Check required columns for various data types
+const checkRequiredColumns = (
+  headers: string[],
+  dataType: 'tower' | 'contract' | 'landlord' | 'payment'
+): { valid: boolean; errors: ValidationError[] } => {
+  const errors: ValidationError[] = [];
+  let requiredColumns: string[] = [];
+  
+  switch (dataType) {
+    case 'tower':
+      requiredColumns = ['tower_id', 'latitude', 'longitude'];
+      break;
+    case 'contract':
+      requiredColumns = ['contract_id', 'start_date', 'end_date', 'monthly_rate'];
+      break;
+    case 'landlord':
+      requiredColumns = ['landlord_id', 'name'];
+      break;
+    case 'payment':
+      requiredColumns = ['contract_id', 'payment_date', 'amount', 'status'];
+      break;
+  }
+  
+  const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+  
+  if (missingColumns.length > 0) {
+    errors.push({
+      row: 0,
+      column: '',
+      message: `Missing required columns: ${missingColumns.join(', ')}`,
+      severity: 'critical'
+    });
+  }
+  
+  return { valid: errors.length === 0, errors };
+};
+
 export const useValidation = () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
@@ -610,10 +647,258 @@ const validateTowerData = (fileContent: string): ValidationResult => {
     }
   };
 };
+
+// Check required columns for various data types
+const checkRequiredColumns = (
+  headers: string[],
+  dataType: 'tower' | 'contract' | 'landlord' | 'payment'
+): { valid: boolean; errors: ValidationError[] } => {
+  const errors: ValidationError[] = [];
+  let requiredColumns: string[] = [];
+  
+  switch (dataType) {
+    case 'tower':
+      requiredColumns = ['tower_id', 'latitude', 'longitude'];
+      break;
+    case 'contract':
+      requiredColumns = ['contract_id', 'start_date', 'end_date', 'monthly_rate'];
+      break;
+    case 'landlord':
+      requiredColumns = ['landlord_id', 'name'];
+      break;
+    case 'payment':
+      requiredColumns = ['contract_id', 'payment_date', 'amount', 'status'];
+      break;
+  }
+  
+  const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+  
+  if (missingColumns.length > 0) {
+    errors.push({
+      row: 0,
+      column: '',
+      message: `Missing required columns: ${missingColumns.join(', ')}`,
+      severity: 'critical'
+    });
+  }
+  
+  return { valid: errors.length === 0, errors };
+};
+
+// Process a batch of rows
+const processBatch = async (
+  rows: any[],
+  dataType: 'tower' | 'contract' | 'landlord' | 'payment',
+  startIndex: number
+): Promise<{ errors: ValidationError[]; validCount: number }> => {
+  const errors: ValidationError[] = [];
+  let validCount = 0;
+  
+  // Process each row based on data type
+  rows.forEach((row, index) => {
+    const rowNum = startIndex + index + 2; // +2 for header row and 0-indexing
+    let rowValid = true;
+    
+    switch (dataType) {
+      case 'tower':
+        const towerErrors = validateTowerRow(row, rowNum);
+        if (towerErrors.length > 0) {
+          errors.push(...towerErrors);
+          rowValid = false;
+        }
+        break;
+      case 'contract':
+        const contractErrors = validateContractRow(row, rowNum);
+        if (contractErrors.length > 0) {
+          errors.push(...contractErrors);
+          rowValid = false;
+        }
+        break;
+      case 'landlord':
+        const landlordErrors = validateLandlordRow(row, rowNum);
+        if (landlordErrors.length > 0) {
+          errors.push(...landlordErrors);
+          rowValid = false;
+        }
+        break;
+      case 'payment':
+        const paymentErrors = validatePaymentRow(row, rowNum);
+        if (paymentErrors.length > 0) {
+          errors.push(...paymentErrors);
+          rowValid = false;
+        }
+        break;
+    }
+    
+    if (rowValid) {
+      validCount++;
+    }
+  });
+  
+  return { errors, validCount };
+};
+
+// Helper functions for each row type validation
+// Helper functions for each row type validation
+const validateTowerRow = (row: any, rowNum: number): ValidationError[] => {
+  const errors: ValidationError[] = [];
+  
+  // Tower ID validation
+  if (!row.tower_id) {
+    errors.push({
+      row: rowNum,
+      column: 'tower_id',
+      message: 'Tower ID is required',
+      severity: 'critical'
+    });
+  } else if (!/^[a-zA-Z0-9-_]+$/.test(row.tower_id)) {
+    errors.push({
+      row: rowNum,
+      column: 'tower_id',
+      message: 'Tower ID must contain only alphanumeric characters, hyphens, and underscores',
+      severity: 'major'
+    });
+  }
+  
+  // Latitude validation
+  if (row.latitude !== undefined && row.latitude !== null) {
+    const lat = Number(row.latitude);
+    if (isNaN(lat)) {
+      errors.push({
+        row: rowNum,
+        column: 'latitude',
+        message: 'Latitude must be a number',
+        severity: 'major'
+      });
+    } else if (lat < -90 || lat > 90) {
+      errors.push({
+        row: rowNum,
+        column: 'latitude',
+        message: 'Latitude must be between -90 and 90',
+        severity: 'major'
+      });
+    }
+  }
+  
+  // Longitude validation
+  if (row.longitude !== undefined && row.longitude !== null) {
+    const lng = Number(row.longitude);
+    if (isNaN(lng)) {
+      errors.push({
+        row: rowNum,
+        column: 'longitude',
+        message: 'Longitude must be a number',
+        severity: 'major'
+      });
+    } else if (lng < -180 || lng > 180) {
+      errors.push({
+        row: rowNum,
+        column: 'longitude',
+        message: 'Longitude must be between -180 and 180',
+        severity: 'major'
+      });
+    }
+  }
+  
+  return errors;
+};
+
+// Stub implementations for other validation types
+// These should be fully implemented similar to validateTowerRow
+const validateContractRow = (row: any, rowNum: number): ValidationError[] => {
+  // Implement contract validation
+  const errors: ValidationError[] = [];
+  // Contract validation logic goes here
+  return errors;
+};
+
+const validateLandlordRow = (row: any, rowNum: number): ValidationError[] => {
+  // Implement landlord validation
+  const errors: ValidationError[] = [];
+  // Landlord validation logic goes here
+  return errors;
+};
+
+const validatePaymentRow = (row: any, rowNum: number): ValidationError[] => {
+  // Implement payment validation
+  const errors: ValidationError[] = [];
+  // Payment validation logic goes here
+  return errors;
+};
+
+// Process validation in batches to improve performance
+const validateFileBatched = async (
+  fileContent: string,
+  options: ValidationOptions,
+  batchSize: number = 500
+): Promise<ValidationResult> => {
+  try {
+    // Parse the CSV data
+    const parsedData = Papa.parse(fileContent, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: true,
+    });
+    
+    const headers = parsedData.meta.fields || [];
+    const rows = parsedData.data as any[];
+    
+    // Check for required columns first (critical check)
+    const errors: ValidationError[] = [];
+    const requiredColumnsCheck = checkRequiredColumns(headers, options.dataType);
+    
+    if (requiredColumnsCheck.errors.length > 0) {
+      return {
+        valid: false,
+        errors: requiredColumnsCheck.errors,
+        summary: {
+          total: rows.length,
+          valid: 0,
+          invalid: rows.length
+        }
+      };
+    }
+    
+    // Process in batches
+    let validRowCount = 0;
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize);
+      const batchResult = await processBatch(batch, options.dataType, i);
+      
+      errors.push(...batchResult.errors);
+      validRowCount += batchResult.validCount;
+      
+      // Allow UI to update between batches
+      await new Promise(resolve => setTimeout(resolve, 0));
+    }
+    
+    return {
+      valid: errors.length === 0,
+      errors,
+      summary: {
+        total: rows.length,
+        valid: validRowCount,
+        invalid: rows.length - validRowCount
+      }
+    };
+  } catch (err: any) {
+    error.value = err.message;
+    return {
+      valid: false,
+      errors: [{
+        row: 0,
+        column: '',
+        message: err.message,
+        severity: 'critical'
+      }]
+    };
+  }
+};
   
   return {
     loading,
     error,
-    validateFile
+    validateFile,
+    validateFileBatched
   };
 };

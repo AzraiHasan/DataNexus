@@ -1,10 +1,11 @@
 // composables/useClaudeApi.ts
-import { ref } from 'vue'
+import { useResponseCache } from './useResponseCache'
 
 interface ClaudeOptions {
   maxTokens?: number;
   temperature?: number;
   model: 'claude-3-5-haiku' | 'claude-3-7-sonnet' | 'claude-3-opus';
+  skipCache?: boolean;
 }
 
 interface ClaudeResponse {
@@ -12,11 +13,13 @@ interface ClaudeResponse {
   tokensUsed: number;
   success: boolean;
   error?: string;
+  cached?: boolean;
 }
 
 export const useClaudeApi = () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
+  const { cacheResponse, findCachedResponse } = useResponseCache();
   
   // Send a request to Claude API
   const sendPrompt = async (
@@ -27,8 +30,21 @@ export const useClaudeApi = () => {
     error.value = null;
     
     try {
-      // API requests would normally go directly to Anthropic's API
-      // For our MVP, we'll route through our backend to handle key management
+      // Check cache unless explicitly skipped
+      if (!options.skipCache) {
+        const cachedResponse = findCachedResponse(prompt, options.model);
+        if (cachedResponse) {
+          console.log('Using cached response');
+          return {
+            content: cachedResponse,
+            tokensUsed: 0, // No tokens used for cached response
+            success: true,
+            cached: true
+          };
+        }
+      }
+      
+      // Make API request
       const response = await fetch('/api/claude', {
         method: 'POST',
         headers: {
@@ -48,6 +64,9 @@ export const useClaudeApi = () => {
       }
       
       const data = await response.json();
+      
+      // Cache the response
+      cacheResponse(prompt, options.model, data.content, data.tokens_used || 0);
       
       return {
         content: data.content,
@@ -103,12 +122,13 @@ export const useClaudeApi = () => {
     // Keyword-based complexity
     const complexityKeywords = [
       'compare', 'analysis', 'trend', 'forecast', 'risk', 
-      'correlation', 'calculate', 'optimize', 'recommend', 'strategy'
+      'correlation', 'calculate', 'optimize', 'recommend', 'strategy',
+      'performance', 'across'
     ];
     
     complexityKeywords.forEach(keyword => {
       if (query.toLowerCase().includes(keyword)) {
-        complexity += 0.5;
+        complexity += 0.7;
       }
     });
     
@@ -119,11 +139,17 @@ export const useClaudeApi = () => {
       complexity += 2;
     }
     
+    if (query.toLowerCase().includes('year') || 
+        query.toLowerCase().includes('month') || 
+        query.toLowerCase().includes('past')) {
+      complexity += 1;
+    }
+    
     // Geographic complexity
     if (query.toLowerCase().includes('region') || 
         query.toLowerCase().includes('location') ||
         query.toLowerCase().includes('map')) {
-      complexity += 1;
+      complexity += 1.5;
     }
     
     return Math.min(10, complexity);
