@@ -1,24 +1,7 @@
 // composables/useValidation.ts
-
+import type { ValidationError, ValidationResult } from '~/types/validation'
 // Import PapaParse properly with type definition
 import Papa from 'papaparse';
-
-interface ValidationResult {
-  valid: boolean;
-  errors: ValidationError[];
-  summary?: {
-    total: number;
-    valid: number;
-    invalid: number;
-  };
-}
-
-interface ValidationError {
-  row: number;
-  column: string;
-  message: string;
-  severity: 'critical' | 'major' | 'minor';
-}
 
 interface ValidationOptions {
   dataType: 'tower' | 'contract' | 'landlord' | 'payment';

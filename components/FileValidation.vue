@@ -30,6 +30,7 @@
 </template>
 
 <script setup lang="ts">
+import type { ValidationError, ValidationResult } from '~/types/validation'
 // Define validation status type
 type ValidationStatus = 'pending' | 'processing' | 'valid' | 'invalid';
 
@@ -51,23 +52,6 @@ interface FileRecord {
   uploaded_at: string;
   validation_status: ValidationStatus;
   file_size: number;
-}
-
-interface ValidationError {
-  row: number;
-  column: string;
-  message: string;
-  severity: 'critical' | 'major' | 'minor';
-}
-
-interface ValidationResult {
-  valid: boolean;
-  errors: ValidationError[];
-  summary?: {
-    total: number;
-    valid: number;
-    invalid: number;
-  };
 }
 
 const props = defineProps({

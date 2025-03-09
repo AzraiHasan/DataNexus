@@ -106,22 +106,7 @@
 </template>
 
 <script setup lang="ts">
-interface ValidationError {
-  row: number;
-  column: string;
-  message: string;
-  severity: 'critical' | 'major' | 'minor';
-}
-
-interface ValidationResult {
-  valid: boolean;
-  errors: ValidationError[];
-  summary?: {
-    total: number;
-    valid: number;
-    invalid: number;
-  };
-}
+import type { ValidationError, ValidationResult } from '~/types/validation'
 
 const props = defineProps<{
   result?: ValidationResult;
