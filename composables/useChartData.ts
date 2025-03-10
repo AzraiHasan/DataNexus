@@ -50,16 +50,23 @@ export const useChartData = () => {
       if (options.dateFormat && transformed.length > 0 && isDateValue(transformed[0].x)) {
         transformed = transformed.map(item => ({
           ...item,
-          x: formatDate(new Date(item.x), options.dateFormat || 'MM/DD/YYYY')
+          x: formatDate(new Date(item.x), options.dateFormat || 'MM/DD/YYYY'),
+          _originalDate: item.x // Keep original date for sorting
         }));
       }
       
       // Sort data if needed
       if (options.sortBy) {
         const direction = options.sortDirection === 'desc' ? 'desc' : 'asc';
-        const sortKey = options.sortBy === 'value' ? 'y' : 'x';
         
-        transformed = _.orderBy(transformed, [sortKey], [direction]);
+        if (options.sortBy === 'date' && transformed.length > 0 && transformed[0]._originalDate) {
+          // Sort by original date if available
+          transformed = _.orderBy(transformed, ['_originalDate'], [direction]);
+        } else {
+          // Sort by specified field
+          const sortKey = options.sortBy === 'value' ? 'y' : 'x';
+          transformed = _.orderBy(transformed, [sortKey], [direction]);
+        }
       }
       
       // Limit data points and group others if needed
@@ -108,6 +115,7 @@ export const useChartData = () => {
       let transformed = data.map(item => ({
         label: item[labelKey] || 'Unnamed',
         value: typeof item[valueKey] === 'number' ? item[valueKey] : parseFloat(item[valueKey]) || 0,
+        color: item.color, // Pass through any color property
         ...item // Include original data for reference
       }));
       
@@ -189,13 +197,169 @@ export const useChartData = () => {
         return {
           [groupKey]: key,
           [valueKey]: aggregatedValue,
-          _count: group.length
+          _count: group.length,
+          _data: group
         };
       });
       
       return result;
     } catch (err: any) {
       console.error('Error grouping data:', err);
+      error.value = err.message;
+      return [];
+    }
+  };
+
+  /**
+   * Create a time series from data with date field
+   */
+  const createTimeSeries = (
+    data: any[],
+    dateField: string,
+    valueField: string,
+    interval: 'day' | 'week' | 'month' | 'year' = 'month',
+    aggregation: 'sum' | 'avg' | 'min' | 'max' | 'count' = 'sum'
+  ): ChartDataPoint[] => {
+    try {
+      if (!data || !data.length) return [];
+      
+      // Check if all dates are valid
+      const validData = data.filter(item => {
+        const date = new Date(item[dateField]);
+        return !isNaN(date.getTime());
+      });
+      
+      if (validData.length === 0) return [];
+      
+      // Group by time interval
+      const timeGroups = _.groupBy(validData, item => {
+        const date = new Date(item[dateField]);
+        
+        switch (interval) {
+          case 'day':
+            return formatDate(date, 'YYYY-MM-DD');
+          case 'week':
+            // Get the first day of the week (Sunday)
+            const weekStart = new Date(date);
+            weekStart.setDate(date.getDate() - date.getDay());
+            return formatDate(weekStart, 'YYYY-MM-DD');
+          case 'month':
+            return formatDate(date, 'YYYY-MM');
+          case 'year':
+            return date.getFullYear().toString();
+          default:
+            return formatDate(date, 'YYYY-MM');
+        }
+      });
+      
+      // Aggregate values for each time group
+      const timeSeries = Object.entries(timeGroups).map(([timeKey, group]) => {
+        let value: number;
+        
+        switch (aggregation) {
+          case 'sum':
+            value = _.sumBy(group, item => parseFloat(item[valueField]) || 0);
+            break;
+          case 'avg':
+            value = _.meanBy(group, item => parseFloat(item[valueField]) || 0);
+            break;
+          case 'min':
+            value = _.minBy(group, item => parseFloat(item[valueField]) || 0)?.[valueField] || 0;
+            break;
+          case 'max':
+            value = _.maxBy(group, item => parseFloat(item[valueField]) || 0)?.[valueField] || 0;
+            break;
+          case 'count':
+            value = group.length;
+            break;
+          default:
+            value = _.sumBy(group, item => parseFloat(item[valueField]) || 0);
+        }
+        
+        // Format display date based on interval
+        let displayDate = timeKey;
+        if (interval === 'month') {
+          // Convert YYYY-MM to MMM YYYY
+          const [year, month] = timeKey.split('-');
+          const date = new Date(parseInt(year), parseInt(month) - 1);
+          displayDate = date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+        }
+        
+        return {
+          x: displayDate,
+          y: value,
+          _originalDate: timeKey,
+          _count: group.length,
+          _data: group
+        };
+      });
+      
+      // Sort chronologically
+      return timeSeries.sort((a, b) => a._originalDate.localeCompare(b._originalDate));
+    } catch (err: any) {
+      console.error('Error creating time series:', err);
+      error.value = err.message;
+      return [];
+    }
+  };
+  
+  /**
+   * Calculate statistical distribution for numerical data
+   */
+  const calculateDistribution = (
+    data: any[],
+    valueField: string,
+    bins: number = 10
+  ): ChartDataPoint[] => {
+    try {
+      if (!data || !data.length) return [];
+      
+      // Extract numeric values
+      const values = data
+        .map(item => parseFloat(item[valueField]))
+        .filter(val => !isNaN(val));
+      
+      if (values.length === 0) return [];
+      
+      const min = _.min(values) || 0;
+      const max = _.max(values) || 0;
+      
+      // If min === max, create a single bin
+      if (min === max) {
+        return [{ x: min.toString(), y: values.length }];
+      }
+      
+      // Create bins
+      const binWidth = (max - min) / bins;
+      const distribution = [];
+      
+      for (let i = 0; i < bins; i++) {
+        const binStart = min + (i * binWidth);
+        const binEnd = min + ((i + 1) * binWidth);
+        const binLabel = `${binStart.toFixed(1)}-${binEnd.toFixed(1)}`;
+        
+        // Count values in this bin
+        const count = values.filter(val => {
+          if (i === bins - 1) {
+            // Include upper bound for last bin
+            return val >= binStart && val <= binEnd;
+          }
+          return val >= binStart && val < binEnd;
+        }).length;
+        
+        if (count > 0) {
+          distribution.push({
+            x: binLabel,
+            y: count,
+            _binStart: binStart,
+            _binEnd: binEnd
+          });
+        }
+      }
+      
+      return distribution;
+    } catch (err: any) {
+      console.error('Error calculating distribution:', err);
       error.value = err.message;
       return [];
     }
@@ -241,6 +405,8 @@ export const useChartData = () => {
     transformToXYSeries,
     transformToPieSeries,
     groupByAndAggregate,
+    createTimeSeries,
+    calculateDistribution,
     isDateValue,
     formatDate
   };

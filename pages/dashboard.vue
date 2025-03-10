@@ -1,62 +1,107 @@
-<!-- TEMPORARY EMERGENCY FIX: This is a minimal version to bypass the type error -->
-<script setup lang="ts">
-import { useRouter } from 'vue-router'
-
-definePageMeta({
-  middleware: ['auth']
-})
-
-const router = useRouter()
-
-function goToUploads() {
-  router.push('/uploads')
-}
-</script>
-
+<!-- pages/dashboard.vue -->
 <template>
   <section class="container mx-auto p-6">
     <div class="bg-white rounded-lg shadow-md p-6 mb-6">
       <h1 class="text-3xl font-bold text-gray-800 mb-4">Dashboard</h1>
       <p class="text-gray-600">
-        The dashboard is temporarily simplified while we resolve a technical issue.
+        Welcome to your Telecom Tower Data Analysis dashboard. View key metrics, generate reports, and manage your data.
       </p>
-      <div class="mt-4">
-        <button class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded" @click="goToUploads">
-          Manage Data Uploads
-        </button>
-      </div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <!-- Simple Stat Panels -->
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold mb-4">Tower Statistics</h2>
-        <p class="text-gray-600">Tower statistics will be available shortly.</p>
-      </div>
+      <!-- Tower Statistics -->
+      <TowerStatistics ref="towerStats" />
 
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold mb-4">Contract Timeline</h2>
-        <p class="text-gray-600">Contract timeline will be available shortly.</p>
-      </div>
+      <!-- Contract Timeline -->
+      <ContractTimeline ref="contractTimeline" />
 
-      <!-- Simple Upload Panel -->
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold mb-4">Quick Upload</h2>
-        <p class="text-gray-600">
-          The upload component is temporarily unavailable.
-          Please use the Data Management page.
-        </p>
-      </div>
+      <!-- Quick Upload -->
+      <UCard>
+        <template #header>
+          <div class="font-semibold text-lg">Quick Upload</div>
+        </template>
+        <UploadDashboard @uploaded="handleDataUploaded" @imported="handleDataImported" />
+      </UCard>
 
-      <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold mb-4">Data Management</h2>
-        <p class="text-gray-600 mb-4">
-          Access advanced data upload and validation features.
-        </p>
-        <button class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded" @click="goToUploads">
-          Go to Data Management
-        </button>
-      </div>
+      <!-- Reports & Analytics -->
+      <UCard>
+        <template #header>
+          <div class="font-semibold text-lg">Reports & Analytics</div>
+        </template>
+        <div class="space-y-4">
+          <p class="text-gray-600">Generate insights from your tower data.</p>
+          
+          <div class="grid grid-cols-2 gap-3">
+            <UButton to="/reports/contract-expiry" class="flex flex-col items-center justify-center p-3 h-24">
+              <UIcon name="i-heroicons-calendar" class="h-8 w-8 mb-1" />
+              <span>Contract Expiry</span>
+            </UButton>
+            
+            <UButton to="/reports/payment-summary" class="flex flex-col items-center justify-center p-3 h-24">
+              <UIcon name="i-heroicons-currency-dollar" class="h-8 w-8 mb-1" />
+              <span>Payment Summary</span>
+            </UButton>
+          </div>
+          
+          <UButton to="/reports" block color="gray" variant="soft">
+            View All Reports
+          </UButton>
+          
+          <UButton to="/query" block color="primary">
+            Ask AI Assistant
+          </UButton>
+        </div>
+      </UCard>
     </div>
   </section>
 </template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { useSupabaseClient } from '#imports';
+
+definePageMeta({
+  middleware: ['auth']
+});
+
+// Define component interfaces based on exposed methods
+interface TowerStatsComponent {
+  fetchTowerData: () => Promise<void>;
+}
+
+interface ContractTimelineComponent {
+  fetchContractData: () => Promise<void>;
+}
+
+// Component references with proper typing
+const towerStats = ref<TowerStatsComponent | null>(null);
+const contractTimeline = ref<ContractTimelineComponent | null>(null);
+
+// Handle data upload events
+function handleDataUploaded(event: any) {
+  // Refresh data after validation if needed
+}
+
+function handleDataImported(event: any) {
+  // Refresh data components after import
+  if (towerStats.value) {
+    towerStats.value.fetchTowerData();
+  }
+  
+  if (contractTimeline.value) {
+    contractTimeline.value.fetchContractData();
+  }
+}
+
+// Initialize data on component mount
+onMounted(() => {
+  // This will ensure initial data load
+  if (towerStats.value) {
+    towerStats.value.fetchTowerData();
+  }
+  
+  if (contractTimeline.value) {
+    contractTimeline.value.fetchContractData();
+  }
+});
+</script>
