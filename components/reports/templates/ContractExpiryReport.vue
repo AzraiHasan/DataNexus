@@ -104,10 +104,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { ReportBuilder, ReportSection } from '../';
-import { LineChart, BarChart, DataTable, MapVisualization } from '../../visualizations';
-import { useChartData } from '../../../composables/useChartData';
+// Direct imports to avoid module resolution issues
+import ReportBuilder from '../ReportBuilder.vue';
+import ReportSection from '../ReportSection.vue';
+import LineChart from '../../visualizations/LineChart.vue';
+import BarChart from '../../visualizations/BarChart.vue';
+import DataTable from '../../visualizations/DataTable.vue';
+import MapVisualization from '../../visualizations/MapVisualization.vue';
 import { useDataAggregation } from '../../../composables/useDataAggregation';
+import { useSupabaseClient } from '#imports';
 
 interface ContractExpiryReportProps {
   period?: number; // Number of months to look ahead
@@ -150,12 +155,12 @@ today.setHours(0, 0, 0, 0);
 
 const expiringContracts = computed(() => {
   // Filter contracts expiring within the period
-  const endDate = new Date(today);
-  endDate.setMonth(endDate.getMonth() + props.period);
+  const periodEndDate = new Date(today);
+  periodEndDate.setMonth(periodEndDate.getMonth() + props.period);
   
   return contractsData.value.filter(contract => {
-    const endDate = new Date(contract.end_date);
-    return endDate >= today && endDate <= endDate;
+    const contractEndDate = new Date(contract.end_date);
+    return contractEndDate >= today && contractEndDate <= periodEndDate;
   });
 });
 
@@ -318,8 +323,17 @@ const expiringContractsTable = computed(() => {
   }));
 });
 
+// Define TableColumn type to match expected structure
+interface TableColumn {
+  key: string;
+  label: string;
+  format?: (value: any) => string;
+  sortable?: boolean;
+  align?: 'left' | 'right' | 'center';
+}
+
 // Contract table columns
-const contractColumns = [
+const contractColumns: TableColumn[] = [
   { key: 'id', label: 'Contract ID' },
   { key: 'tower', label: 'Tower' },
   { 
@@ -366,6 +380,12 @@ const fetchContractsData = async () => {
     
     if (!userData.user?.id) throw new Error('User not authenticated');
     
+    // Define profile data interface
+    interface ProfileData {
+      company_id: string;
+      [key: string]: any;
+    }
+    
     // Get company ID from profile if not provided
     let companyId = props.companyId;
     if (!companyId) {
@@ -376,7 +396,9 @@ const fetchContractsData = async () => {
         .single();
         
       if (profileError) throw profileError;
-      companyId = profileData.company_id;
+      companyId = (profileData as ProfileData)?.company_id;
+      
+      if (!companyId) throw new Error('Company ID not found in user profile');
     }
     
     // Define the date range for fetching contracts
@@ -399,7 +421,7 @@ const fetchContractsData = async () => {
         towers(tower_id, name, latitude, longitude),
         landlords(name)
       `)
-      .eq('company_id', companyId)
+      .eq('company_id', companyId as string)
       .gte('end_date', today.toISOString().split('T')[0])
       .lte('end_date', endDate.toISOString().split('T')[0]);
     
