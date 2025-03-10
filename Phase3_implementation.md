@@ -127,7 +127,7 @@ Phase 3 focuses on implementing data visualization and reporting capabilities fo
 
 ### Required Libraries
 
-- **Visualization**: Recharts (already available in the project) ✅
+- **Visualization**: Vue-chartjs (already available in the project) ✅
 - **Mapping**: Leaflet.js ✅
 - **Export**: jsPDF, SheetJS ⏳
 - **Utility**: html2canvas, lodash (already available) ✅

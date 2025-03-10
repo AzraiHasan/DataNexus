@@ -70,7 +70,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import { utils, writeFile } from 'xlsx';
 
 interface ReportBuilderProps {
   title: string;
@@ -110,20 +113,151 @@ const formatDate = (date: Date): string => {
   });
 };
 
-// Replace your export functions with these simpler versions
-const exportAsPDF = () => {
-  // Placeholder for PDF export functionality
-  alert('PDF export will be available in the next update. For now, you can use the browser print function.');
-  // Later, when dependencies are properly installed, replace with full implementation
+const exportAsPDF = async () => {
+  if (!reportContent.value) return;
+  
+  try {
+    // Show loading state
+    const toast = useToast();
+    toast.add({
+      title: 'Exporting PDF',
+      description: 'Please wait while we generate your PDF...',
+      color: 'blue'
+    });
+    
+    // Convert the report content to a canvas
+    const canvas = await html2canvas(reportContent.value);
+    const imgData = canvas.toDataURL('image/png');
+    
+    // Create PDF with proper dimensions
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+    
+    // Calculate dimensions
+    const imgWidth = 210; // A4 width in mm
+    const pageHeight = 295; // A4 height in mm
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    // Add image to PDF
+    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+    
+    // Save the PDF
+    pdf.save(`${props.title.replace(/\s+/g, '-').toLowerCase()}.pdf`);
+    
+    toast.add({
+      title: 'Success',
+      description: 'PDF exported successfully',
+      color: 'green'
+    });
+  } catch (err: unknown) {
+  console.error('PDF export error:', err);
+  const toast = useToast();
+  toast.add({
+    title: 'Export Failed',
+    description: err instanceof Error ? err.message : 'Error generating PDF',
+    color: 'red'
+  });
+}
 };
 
 const exportAsExcel = () => {
-  alert('Excel export will be available in the next update.');
+  try {
+    // Show loading state
+    const toast = useToast();
+    toast.add({
+      title: 'Exporting Excel',
+      description: 'Preparing Excel file...',
+      color: 'blue'
+    });
+    
+    // Create a workbook with report metadata
+    const wb = utils.book_new();
+    
+    // Create a worksheet from the report data
+    // We need to extract data from the report content
+    // For now, we'll use a simple approach with metadata
+    const wsData = [
+      ['Report Title', props.title],
+      ['Generated On', formatDate(new Date())],
+      ['Description', props.description || '']
+    ];
+    
+    // Add metadata entries
+    if (props.metadata) {
+  Object.entries(props.metadata).forEach(([key, value]) => {
+    wsData.push([formatMetadataKey(key), String(value)]);
+  });
+}
+    
+    // Create worksheet from data
+    const ws = utils.aoa_to_sheet(wsData);
+    
+    // Add worksheet to workbook
+    utils.book_append_sheet(wb, ws, 'Report Summary');
+    
+    // Write and download the file
+    writeFile(wb, `${props.title.replace(/\s+/g, '-').toLowerCase()}.xlsx`);
+    
+    toast.add({
+      title: 'Success',
+      description: 'Excel file exported successfully',
+      color: 'green'
+    });
+  } catch (err: unknown) {
+    console.error('Excel export error:', err);
+    const toast = useToast();
+    toast.add({
+      title: 'Export Failed',
+      description: err instanceof Error ? err.message : 'Error generating Excel file',
+      color: 'red'
+    });
+  }
 };
 
-const exportAsImage = () => {
-  // Placeholder for image export functionality
-  alert('Image export will be available in the next update. For now, you can use browser screenshot functionality.');
-  // Later, when dependencies are properly installed, replace with full implementation
+const exportAsImage = async () => {
+  if (!reportContent.value) return;
+  
+  try {
+    // Show loading state
+    const toast = useToast();
+    toast.add({
+      title: 'Exporting Image',
+      description: 'Generating image...',
+      color: 'blue'
+    });
+    
+    // Convert the report content to a canvas
+    const canvas = await html2canvas(reportContent.value);
+    
+    // Convert to data URL
+    const imageUrl = canvas.toDataURL('image/png');
+    
+    // Create a temporary link for download
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    link.download = `${props.title.replace(/\s+/g, '-').toLowerCase()}.png`;
+    
+    // Add to document, click, and remove
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.add({
+      title: 'Success',
+      description: 'Image exported successfully',
+      color: 'green'
+    });
+  } catch (err: unknown) {
+    console.error('Image export error:', err);
+    const toast = useToast();
+    toast.add({
+      title: 'Export Failed',
+      description: err instanceof Error ? err.message : 'Error generating image',
+      color: 'red'
+    });
+  }
 };
 </script>
