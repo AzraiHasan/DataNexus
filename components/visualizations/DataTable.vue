@@ -48,11 +48,12 @@
           Showing {{ paginationStart + 1 }} to {{ Math.min(paginationStart + pageSize, filteredData.length) }} of {{ filteredData.length }} entries
         </div>
         <UPagination
-          v-model="currentPage"
-          :page-count="Math.ceil(filteredData.length / pageSize)"
-          :prev-button="{ icon: 'i-heroicons-arrow-small-left' }"
-          :next-button="{ icon: 'i-heroicons-arrow-small-right' }"
-        />
+  v-model="currentPage"
+  :page-count="Math.ceil(filteredData.length / pageSize)"
+  :total="filteredData.length"
+  :prev-button="{ icon: 'i-heroicons-arrow-small-left' }"
+  :next-button="{ icon: 'i-heroicons-arrow-small-right' }"
+/>
       </div>
     </div>
   </div>
@@ -98,7 +99,7 @@ const props = withDefaults(defineProps<DataTableProps>(), {
 // State
 const searchQuery = ref('');
 const currentPage = ref(1);
-const sortingInfo = ref<{ column: string; direction: 'asc' | 'desc' } | null>(props.initialSort || null);
+const sortingInfo = ref<{ column: string; direction: 'asc' | 'desc' } | undefined>(props.initialSort);
 
 // Reset pagination when data changes
 watch(() => props.data, () => {

@@ -85,10 +85,15 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { ReportBuilder, ReportSection } from '../';
-import { LineChart, BarChart, PieChart, DataTable } from '../../visualizations';
-import { useChartData } from '../../../composables/useChartData';
-import { useDataAggregation } from '../../../composables/useDataAggregation';
+import { useSupabaseClient } from '#imports';
+import ReportBuilder from '../../reports/ReportBuilder.vue';
+import ReportSection from '../../reports/ReportSection.vue';
+import LineChart from '../../visualizations/LineChart.vue';
+import BarChart from '../../visualizations/BarChart.vue';
+import PieChart from '../../visualizations/PieChart.vue';
+import DataTable from '../../visualizations/DataTable.vue';
+// MapVisualization is imported but not used in the template
+import MapVisualization from '../../visualizations/MapVisualization.vue';
 
 interface PaymentReportProps {
   startDate?: string;
@@ -162,7 +167,7 @@ const chartData = computed(() => {
     'sum'
   );
   
-  // Transform to XY series format for LineChart
+// Transform to XY series format for LineChart
   return monthlyData.map(item => ({
     x: formatMonthYear(item.date),
     y: item.value
@@ -216,8 +221,16 @@ const landlordTableData = computed(() => {
     }));
 });
 
+// Define TableColumn type
+interface TableColumn {
+  key: string;
+  label: string;
+  format?: (value: any) => string;
+  align?: 'right' | 'left' | 'center';
+}
+
 // Landlord table columns
-const landlordColumns = [
+const landlordColumns: TableColumn[] = [
   { key: 'landlord', label: 'Landlord' },
   { 
     key: 'total', 
@@ -248,7 +261,7 @@ const statusData = computed(() => {
   
   // Transform to XY series for BarChart
   return statusGroups.map(item => ({
-    x: capitalizeFirstLetter(item.group),
+    x: capitalizeFirstLetter(String(item.group)),
     y: item.count
   }));
 });
@@ -266,7 +279,7 @@ const paymentDetails = computed(() => {
 });
 
 // Payment table columns
-const paymentColumns = [
+const paymentColumns: TableColumn[] = [
   { 
     key: 'date', 
     label: 'Payment Date',
@@ -306,9 +319,9 @@ const fetchPaymentData = async () => {
         .select('company_id')
         .eq('id', userData.user.id)
         .single();
-        
+      
       if (profileError) throw profileError;
-      companyId = profileData.company_id;
+      companyId = (profileData as unknown as { company_id: string }).company_id;
     }
     
     // Build query
@@ -342,8 +355,8 @@ const fetchPaymentData = async () => {
     
     // Transform data to add landlord name
     paymentData.value = (data || []).map(payment => ({
-      ...payment,
-      landlord_name: payment.landlords?.name || 'Unknown'
+      ...(payment as any),
+      landlord_name: (payment as any).landlords?.name || 'Unknown'
     }));
   } catch (err: any) {
     console.error('Error fetching payment data:', err);
@@ -372,15 +385,22 @@ const formatDateString = (dateString: string): string => {
   });
 };
 
-const formatMonthYear = (monthYearString: string): string => {
+const formatMonthYear = (monthYearString: string | number): string => {
   // Convert YYYY-MM format to Mon YYYY
-  const [year, month] = monthYearString.split('-');
+  const dateStr = String(monthYearString);
+  const [year, month] = dateStr.split('-');
+  
+  if (!year || !month) {
+    return dateStr; // Return as is if not in expected format
+  }
+  
   const date = new Date(parseInt(year), parseInt(month) - 1, 1);
   return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 };
 
-const capitalizeFirstLetter = (string: string): string => {
-  return string.charAt(0).toUpperCase() + string.slice(1);
+const capitalizeFirstLetter = (string: string | number): string => {
+  const str = String(string);
+  return str.charAt(0).toUpperCase() + str.slice(1);
 };
 
 // Load data on mount
