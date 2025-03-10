@@ -1,8 +1,11 @@
 // server/api/reports/[id]/export/pdf.ts
+import { createError, getRouterParam } from 'h3'
+import { serverSupabaseClient } from '#supabase/server'
+
 export default defineEventHandler(async (event) => {
   try {
     // Get report ID from route params
-    const id = getRouteParam(event, 'id');
+    const id = getRouterParam(event, 'id');
     if (!id) {
       return createError({
         statusCode: 400,
@@ -11,8 +14,8 @@ export default defineEventHandler(async (event) => {
     }
     
     // Get auth session
-    const { getSession } = useSupabaseServerClient(event);
-    const session = await getSession();
+    const client = await serverSupabaseClient(event)
+    const { data: { session } } = await client.auth.getSession()
     if (!session) {
       return createError({
         statusCode: 401,
@@ -20,8 +23,8 @@ export default defineEventHandler(async (event) => {
       });
     }
     
-    // Get Supabase client
-    const supabase = useSupabaseClient();
+    // Use the authenticated Supabase client
+    const supabase = client;
     
     // Fetch report data
     const { data: report, error } = await supabase
