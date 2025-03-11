@@ -16,7 +16,7 @@
     <!-- Standard Report Templates -->
     <div>
       <h2 class="text-xl font-semibold mb-4">Standard Reports</h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- Contract Expiry Report -->
         <UCard class="hover:shadow-lg transition-shadow">
           <template #header>
@@ -45,6 +45,23 @@
           <template #footer>
             <div class="flex justify-end">
               <UButton to="/reports/payment-summary" color="primary">
+                Generate Report
+              </UButton>
+            </div>
+          </template>
+        </UCard>
+
+        <!-- Revenue Analysis Report -->
+        <UCard class="hover:shadow-lg transition-shadow">
+          <template #header>
+            <div class="font-medium text-lg">Revenue Analysis Report</div>
+          </template>
+          <p class="text-sm text-gray-600 mb-4">
+            Analyze revenue trends, distribution by tower type, and regional performance.
+          </p>
+          <template #footer>
+            <div class="flex justify-end">
+              <UButton to="/reports/revenue-analysis" color="primary">
                 Generate Report
               </UButton>
             </div>
