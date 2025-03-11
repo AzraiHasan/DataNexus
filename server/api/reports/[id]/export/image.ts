@@ -2,6 +2,33 @@
 import { createError, getRouterParam } from 'h3'
 import { serverSupabaseClient } from '#supabase/server'
 
+// Define interfaces for type safety
+interface ReportData {
+  id: string;
+  company_id: string;
+  created_by: string | null;
+  report_type: string;
+  title: string;
+  description?: string;
+  parameters?: Record<string, any>;
+  content?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ReportWithUser {
+  id: string;
+  company_id: string;
+  created_by: { email: string } | null;
+  report_type: string;
+  title: string;
+  description?: string;
+  parameters?: Record<string, any>;
+  content?: any;
+  created_at: string;
+  updated_at: string;
+}
+
 export default defineEventHandler(async (event) => {
   try {
     // Get report ID from route params
@@ -23,13 +50,10 @@ export default defineEventHandler(async (event) => {
       });
     }
     
-    // Use the authenticated Supabase client
-    const supabase = client;
-    
     // Fetch report data
-    const { data: report, error } = await supabase
+    const { data, error } = await client
       .from('reports')
-      .select('*')
+      .select('*, created_by:profiles(email)')
       .eq('id', id)
       .single();
       
@@ -40,9 +64,25 @@ export default defineEventHandler(async (event) => {
       });
     }
     
-    // Return report data for client-side image generation
+    // Type assertion for TypeScript
+    const report = data as unknown as ReportWithUser;
+    
+    // Format report data for image generation
+    const formattedReport = {
+      id: report.id,
+      title: report.title,
+      description: report.description || '',
+      report_type: report.report_type,
+      parameters: report.parameters || {},
+      content: report.content || {},
+      createdBy: report.created_by?.email || 'Unknown',
+      created_at: report.created_at ? new Date(report.created_at).toLocaleString() : 'Unknown',
+      exportDate: new Date().toLocaleString()
+    };
+    
+    // Return structured data for client-side image generation
     return {
-      report,
+      report: formattedReport,
       status: 'success',
       message: 'Report data retrieved successfully for image generation'
     };

@@ -77,6 +77,8 @@ interface BarChartProps {
   stacked?: boolean;
 }
 
+const emit = defineEmits(['bar-click']);
+
 const props = withDefaults(defineProps<BarChartProps>(), {
   data: () => [],
   labels: undefined,
@@ -192,7 +194,25 @@ const defaultOptions = computed(() => ({
 // Merge default options with user-provided options
 const mergedOptions = computed(() => ({
   ...defaultOptions.value,
-  ...props.options
+  ...props.options,
+  onClick: (event: any, elements: any[]) => {
+    if (elements.length > 0) {
+      const clickedIndex = elements[0].index;
+      const clickedLabel = chartData.value.labels[clickedIndex];
+      const clickedValue = chartData.value.datasets[0].data[clickedIndex];
+      
+      // Get original data item if available
+      const originalItem = props.data[clickedIndex];
+      
+      // Emit event with clicked data
+      emit('bar-click', {
+        label: clickedLabel,
+        value: clickedValue,
+        index: clickedIndex,
+        originalItem
+      });
+    }
+  }
 }));
 </script>
 

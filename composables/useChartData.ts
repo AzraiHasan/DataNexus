@@ -23,9 +23,106 @@ interface TransformOptions {
   aggregation?: 'sum' | 'avg' | 'min' | 'max' | 'count';
 }
 
+interface CacheEntry {
+  key: string;
+  data: any;
+  timestamp: number;
+  ttl: number; // Time to live in milliseconds
+}
+
 export const useChartData = () => {
   const loading = ref(false);
   const error = ref<string | null>(null);
+  
+  // Add cache
+  const cache = ref<CacheEntry[]>([]);
+  const cacheEnabled = ref(true);
+  const defaultCacheTTL = 5 * 60 * 1000; // 5 minutes
+
+  /**
+   * Check if value is a date
+   */
+  const isDateValue = (value: any): boolean => {
+    if (value instanceof Date) return true;
+    if (typeof value === 'string') {
+      // Try to parse as date
+      const date = new Date(value);
+      return !isNaN(date.getTime());
+    }
+    return false;
+  };
+  
+  /**
+   * Format date with simple format patterns
+   */
+  const formatDate = (date: Date, format: string): string => {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      return String(date);
+    }
+    
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    // Simple format replacements
+    return format
+      .replace('YYYY', String(year))
+      .replace('MM', month)
+      .replace('DD', day)
+      .replace('M', String(date.getMonth() + 1))
+      .replace('D', String(date.getDate()));
+  };
+
+  const generateCacheKey = (data: any[], options: any = {}): string => {
+    // Use only the first and last few items to keep the key short
+    const sampleData = data.length > 10 
+      ? [...data.slice(0, 3), ...data.slice(-3)] 
+      : data;
+    
+    // Create a hash-like string
+    return JSON.stringify({
+      sampleData,
+      options: _.pick(options, ['sortBy', 'sortDirection', 'limit', 'groupOthers'])
+    });
+  };
+
+  const getCachedData = <T>(key: string): T | null => {
+    if (!cacheEnabled.value) return null;
+    
+    const now = Date.now();
+    const entry = cache.value.find((entry: CacheEntry) => entry.key === key);
+    
+    if (entry && now - entry.timestamp < entry.ttl) {
+      return entry.data as T;
+    }
+    
+    return null;
+  };
+
+  const setCachedData = (key: string, data: any, ttl: number = defaultCacheTTL): void => {
+    if (!cacheEnabled.value) return;
+    
+    // Remove old entry if exists
+    cache.value = cache.value.filter((entry: CacheEntry) => entry.key !== key);
+    
+    // Add new entry
+    cache.value.unshift({
+      key,
+      data,
+      timestamp: Date.now(),
+      ttl
+    });
+    
+    // Trim cache if needed
+    if (cache.value.length > 50) {
+      cache.value = cache.value.slice(0, 50);
+    }
+  };
+
+  const clearExpiredCache = (): void => {
+    const now = Date.now();
+    cache.value = cache.value.filter((entry: CacheEntry) => now - entry.timestamp < entry.ttl);
+  };
   
   /**
    * Transform raw data into line/bar chart format with x/y coordinates
@@ -39,8 +136,18 @@ export const useChartData = () => {
     try {
       if (!data || !data.length) return [];
       
+      const cacheKey = generateCacheKey(data, {
+        xKey,
+        yKey,
+        ...options
+      });
+
+      // Check cache first
+      const cachedResult = getCachedData<ChartDataPoint[]>(cacheKey);
+      if (cachedResult) return cachedResult;
+      
       // Extract x and y values
-      let transformed = data.map(item => ({
+      let transformed: ChartDataPoint[] = data.map(item => ({
         x: item[xKey],
         y: typeof item[yKey] === 'number' ? item[yKey] : parseFloat(item[yKey]) || 0,
         ...item // Include original data for reference
@@ -48,7 +155,7 @@ export const useChartData = () => {
       
       // Handle date formatting if x is a date
       if (options.dateFormat && transformed.length > 0 && isDateValue(transformed[0].x)) {
-        transformed = transformed.map(item => ({
+        transformed = transformed.map((item: ChartDataPoint) => ({
           ...item,
           x: formatDate(new Date(item.x), options.dateFormat || 'MM/DD/YYYY'),
           _originalDate: item.x // Keep original date for sorting
@@ -76,7 +183,7 @@ export const useChartData = () => {
           const othersData = transformed.slice(options.limit);
           
           // Sum y values for 'Others' category
-          const othersY = othersData.reduce((sum, item) => sum + item.y, 0);
+          const othersY = othersData.reduce((sum: number, item: ChartDataPoint) => sum + item.y, 0);
           
           limitedData.push({
             x: 'Others',
@@ -90,6 +197,8 @@ export const useChartData = () => {
           transformed = transformed.slice(0, options.limit);
         }
       }
+
+      setCachedData(cacheKey, transformed);
       
       return transformed;
     } catch (err: any) {
@@ -182,10 +291,10 @@ export const useChartData = () => {
             aggregatedValue = _.meanBy(group, item => parseFloat(item[valueKey]) || 0);
             break;
           case 'min':
-            aggregatedValue = _.minBy(group, item => parseFloat(item[valueKey]) || 0)?.[valueKey] || 0;
+            aggregatedValue = _.min(group.map(item => parseFloat(item[valueKey]) || 0)) || 0;
             break;
           case 'max':
-            aggregatedValue = _.maxBy(group, item => parseFloat(item[valueKey]) || 0)?.[valueKey] || 0;
+            aggregatedValue = _.max(group.map(item => parseFloat(item[valueKey]) || 0)) || 0;
             break;
           case 'count':
             aggregatedValue = group.length;
@@ -264,10 +373,10 @@ export const useChartData = () => {
             value = _.meanBy(group, item => parseFloat(item[valueField]) || 0);
             break;
           case 'min':
-            value = _.minBy(group, item => parseFloat(item[valueField]) || 0)?.[valueField] || 0;
+            value = _.min(group.map(item => parseFloat(item[valueField]) || 0)) || 0;
             break;
           case 'max':
-            value = _.maxBy(group, item => parseFloat(item[valueField]) || 0)?.[valueField] || 0;
+            value = _.max(group.map(item => parseFloat(item[valueField]) || 0)) || 0;
             break;
           case 'count':
             value = group.length;
@@ -365,40 +474,6 @@ export const useChartData = () => {
     }
   };
   
-  /**
-   * Check if value is a date
-   */
-  const isDateValue = (value: any): boolean => {
-    if (value instanceof Date) return true;
-    if (typeof value === 'string') {
-      // Try to parse as date
-      const date = new Date(value);
-      return !isNaN(date.getTime());
-    }
-    return false;
-  };
-  
-  /**
-   * Format date with simple format patterns
-   */
-  const formatDate = (date: Date, format: string): string => {
-    if (!(date instanceof Date) || isNaN(date.getTime())) {
-      return String(date);
-    }
-    
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    
-    // Simple format replacements
-    return format
-      .replace('YYYY', String(year))
-      .replace('MM', month)
-      .replace('DD', day)
-      .replace('M', String(date.getMonth() + 1))
-      .replace('D', String(date.getDate()));
-  };
-  
   return {
     loading,
     error,
@@ -408,6 +483,11 @@ export const useChartData = () => {
     createTimeSeries,
     calculateDistribution,
     isDateValue,
-    formatDate
+    formatDate,
+    // Add cache control methods
+    enableCache: () => { cacheEnabled.value = true; },
+    disableCache: () => { cacheEnabled.value = false; },
+    clearCache: () => { cache.value = []; },
+    clearExpiredCache
   };
 };

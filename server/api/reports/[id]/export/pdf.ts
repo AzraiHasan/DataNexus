@@ -1,6 +1,34 @@
-// server/api/reports/[id]/export/pdf.ts - Update with proper implementation
+// server/api/reports/[id]/export/pdf.ts - Enhanced the server endpoint for PDF export
 import { createError, getRouterParam } from 'h3'
 import { serverSupabaseClient } from '#supabase/server'
+
+// Define interfaces for type safety
+interface ReportData {
+  id: string;
+  company_id: string;
+  created_by: string | null;
+  report_type: string;
+  title: string;
+  description?: string;
+  parameters?: Record<string, any>;
+  content?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+// Interface for the response when the join with users table occurs
+interface ReportWithUser {
+  id: string;
+  company_id: string;
+  created_by: { email: string } | null;
+  report_type: string;
+  title: string;
+  description?: string;
+  parameters?: Record<string, any>;
+  content?: any;
+  created_at: string;
+  updated_at: string;
+}
 
 export default defineEventHandler(async (event) => {
   try {
@@ -23,13 +51,10 @@ export default defineEventHandler(async (event) => {
       });
     }
     
-    // Use the authenticated Supabase client
-    const supabase = client;
-    
     // Fetch report data
-    const { data: report, error } = await supabase
+    const { data, error } = await client
       .from('reports')
-      .select('*')
+      .select('*, created_by:profiles(email)')
       .eq('id', id)
       .single();
       
@@ -40,9 +65,24 @@ export default defineEventHandler(async (event) => {
       });
     }
     
-    // Return report data for client-side PDF generation
+    // Type assertion to help TypeScript understand the shape
+    const report = data as unknown as ReportWithUser;
+    
+    // Format report data for PDF generation
+    const formattedReport = {
+      id: report.id,
+      title: report.title,
+      description: report.description || '',
+      report_type: report.report_type,
+      createdBy: report.created_by?.email || 'Unknown',
+      created_at: report.created_at ? new Date(report.created_at).toLocaleString() : 'Unknown',
+      updated_at: report.updated_at ? new Date(report.updated_at).toLocaleString() : 'Unknown',
+      exportDate: new Date().toLocaleString()
+    };
+    
+    // Return structured data for client-side PDF generation
     return {
-      report,
+      report: formattedReport,
       status: 'success',
       message: 'Report data retrieved successfully for PDF generation'
     };
