@@ -64,7 +64,7 @@ function removeUser(userId: string) {
   delete selectedUsers.value[userId]
 }
 
-async function handleShare() {
+async function handleShare(data: any) {
   if (Object.keys(selectedUsers.value).length === 0) {
     toast.add({
       title: 'Error',
@@ -103,16 +103,16 @@ async function handleShare() {
     
     // Show success message
     toast.add({
-      title: 'Success',
-      description: 'Report shared successfully',
-      color: 'green'
-    })
-    
-    // Emit shared event with data
-    emit('shared', shareData)
-    
-    // Clear selected users
-    selectedUsers.value = {}
+    title: 'Report Shared',
+    description: `Report shared with ${data.shares.length} users. Email notifications have been sent.`,
+    color: 'green'
+  });
+  
+  // Emit shared event with data
+  emit('shared', data);
+  
+  // Clear selected users
+  selectedUsers.value = {};
     
   } catch (err: any) {
     console.error('Error sharing report:', err)

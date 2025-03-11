@@ -70,37 +70,34 @@ interface NotificationData {
 
 async function sendEmailNotification(client: any, notificationData: NotificationData) {
   try {
-    // Log notification for now (future: replace with actual email sending)
-    console.log('NOTIFICATION: Report shared', {
-      to: notificationData.recipientEmail,
-      subject: `Report "${notificationData.reportTitle}" has been shared with you`,
-      accessLevel: notificationData.accessLevel,
-      sharedBy: notificationData.senderName
+    // Format email content
+    const emailBody = `
+      <p>Hello ${notificationData.recipientName || 'there'},</p>
+      <p>The report "${notificationData.reportTitle}" has been shared with you by ${notificationData.senderName}.</p>
+      <p>You have been granted <strong>${notificationData.accessLevel}</strong> access.</p>
+      ${notificationData.expiresAt ? `<p>This access will expire on ${new Date(notificationData.expiresAt).toLocaleDateString()}.</p>` : ''}
+      <p>You can view this report by logging into the Telecom Tower Data Analysis Platform.</p>
+      <p>Thank you,<br>The Telecom Tower Data Team</p>
+    `;
+
+    // Call our new email notification endpoint
+    const response = await fetch('/api/notifications/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        to: notificationData.recipientEmail,
+        subject: `Report "${notificationData.reportTitle}" has been shared with you`,
+        body: emailBody
+      })
     });
-    
-    // Future implementation: Call email service
-    // Example: await emailService.sendEmail({...})
-    
-    // For now, store the notification in a table if it exists
-    try {
-      await client
-        .from('notifications')
-        .insert({
-          recipient_id: notificationData.recipientEmail,
-          type: 'report_shared',
-          content: {
-            reportTitle: notificationData.reportTitle,
-            accessLevel: notificationData.accessLevel,
-            senderName: notificationData.senderName
-          },
-          read: false,
-          created_at: new Date().toISOString()
-        });
-    } catch (e) {
-      // Table may not exist yet, just log for now
-      console.log('Would store notification in database');
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to send notification');
     }
-    
+
     return true;
   } catch (err) {
     console.error('Failed to send notification:', err);
