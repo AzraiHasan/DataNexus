@@ -1,4 +1,4 @@
-// server/api/reports/[id]/export/pdf.ts - Update with proper implementation
+// server/api/reports/[id]/export/excel.ts
 import { createError, getRouterParam } from 'h3'
 import { serverSupabaseClient } from '#supabase/server'
 
@@ -40,15 +40,15 @@ export default defineEventHandler(async (event) => {
       });
     }
     
-    // Return report data for client-side PDF generation
+    // Return report data for client-side Excel generation
     return {
       report,
       status: 'success',
-      message: 'Report data retrieved successfully for PDF generation'
+      message: 'Report data retrieved successfully for Excel generation'
     };
     
   } catch (err: unknown) {
-    console.error('PDF export error:', err);
+    console.error('Excel export error:', err);
     return createError({
       statusCode: 500,
       statusMessage: err instanceof Error ? err.message : 'Internal server error'
