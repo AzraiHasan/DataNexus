@@ -1,4 +1,4 @@
-// server/api/notifications/email.post.ts - enhanced version
+// server/api/notifications/email.post.ts
 import { createError } from 'h3'
 import { serverSupabaseClient } from '#supabase/server'
 
