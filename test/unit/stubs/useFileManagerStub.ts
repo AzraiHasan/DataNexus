@@ -1,14 +1,13 @@
-// composables/useFileManager.ts
+// test/unit/stubs/useFileManagerStub.ts
+import { vi } from 'vitest'
 import { ref } from 'vue'
-// Let Nuxt's auto-import handle these implicitly
-
-interface FileMetadata {
-  url: string;
-  name: string;
-  size: number;
-  type: string;
-  path: string;
-}
+import { 
+  mockSupabaseClient, 
+  mockUser, 
+  mockBuckets, 
+  mockFiles, 
+  mockProfileData 
+} from '../mocks/nuxtMocks'
 
 interface FileListItem {
   id: string;
@@ -25,11 +24,12 @@ interface ProfileData {
   company_id: string;
 }
 
-export const useFileManager = () => {
-  const supabase = useSupabaseClient()
-  const user = useSupabaseUser()
+// This is a test-only implementation that doesn't rely on Nuxt's context
+export const useFileManagerStub = () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const supabase = mockSupabaseClient
+  const user = mockUser
   
   // Initialize storage bucket if needed
   const initializeStorage = async () => {

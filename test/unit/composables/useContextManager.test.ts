@@ -1,6 +1,6 @@
-// test/composables/useContextManager.spec.ts
+// test/unit/composables/useContextManager.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { useContextManager } from '../../composables/useContextManager'
+import { useContextManager } from '../../../composables/useContextManager'
 
 // Mock Supabase client
 vi.mock('#imports', async () => {

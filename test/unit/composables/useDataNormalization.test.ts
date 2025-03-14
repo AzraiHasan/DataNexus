@@ -1,6 +1,7 @@
-// test/composables/useDataNormalization.spec.ts
+// test/unit/composables/useDataNormalization.test.ts
 import { describe, it, expect } from 'vitest'
-import { useDataNormalization } from '../../composables/useDataNormalization'
+// import { useDataNormalization } from '../../composables/useDataNormalization'
+import { useDataNormalization} from '~/composables/useDataNormalization'
 
 describe('useDataNormalization', () => {
   describe('normalizeTowerData', () => {

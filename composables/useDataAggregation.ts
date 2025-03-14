@@ -77,7 +77,8 @@ export const useDataAggregation = () => {
     // Calculate standard deviation
     const mean = _.mean(values);
     const squareDiffs = values.map(value => Math.pow(value - mean, 2));
-    const stdDev = Math.sqrt(_.sum(squareDiffs) / values.length);
+    // Use n-1 for sample standard deviation (Bessel's correction)
+    const stdDev = Math.sqrt(_.sum(squareDiffs) / (values.length - 1));
     
     return {
       count: values.length,
@@ -145,18 +146,32 @@ export const useDataAggregation = () => {
     data: any[], 
     field: string
   ): {value: any, count: number, percentage: number}[] => {
-    // Get counts of each value
-    const counts = _.countBy(data, item => item[field]);
+    // Get counts of each value, preserving original type
+    const countMap = new Map();
+    
+    data.forEach(item => {
+      const value = item[field];
+      const key = JSON.stringify(value);
+      countMap.set(key, (countMap.get(key) || 0) + 1);
+    });
     
     // Calculate total for percentages
     const total = data.length;
     
     // Convert to array with percentages
-    return Object.entries(counts).map(([value, count]) => ({
-      value,
-      count,
-      percentage: total > 0 ? (count / total) * 100 : 0
-    }));
+    return Array.from(countMap.entries()).map(([key, count]) => {
+      let value;
+      try {
+        value = JSON.parse(key);
+      } catch {
+        value = key;
+      }
+      return {
+        value,
+        count,
+        percentage: total > 0 ? (count / total) * 100 : 0
+      };
+    });
   };
   
   /**
@@ -408,18 +423,20 @@ export const useDataAggregation = () => {
     // Determine date format and increment function
     if (lastDateStr.includes('-W')) {
       // Weekly format (YYYY-WW)
-      const [year, week] = lastDateStr.split('-W').map(Number);
-      nextDate = new Date(year, 0, 1 + (week * 7));
-      dateFormat = (d: Date) => {
-        const firstDayOfYear = new Date(d.getFullYear(), 0, 1);
-        const daysSinceFirstDay = Math.floor((d.getTime() - firstDayOfYear.getTime()) / 86400000) + 1;
-        return `${d.getFullYear()}-W${Math.ceil(daysSinceFirstDay / 7)}`;
+      const [year, weekStr] = lastDateStr.split('-W');
+      // Parse the week, ensuring we keep the original format (with leading zeros)
+      const week = parseInt(weekStr);
+      const nextWeek = week + 1;
+      
+      // Create a simple formatter that preserves the week format
+      nextDate = new Date(); // Dummy date, not actually used for week format
+      dateFormat = () => {
+        return `${year}-W${String(nextWeek).padStart(2, '0')}`;
       };
-      increment = (d: Date) => {
-        const newDate = new Date(d);
-        newDate.setDate(d.getDate() + 7);
-        return newDate;
-      };
+      
+      // For weekly format, we don't use the date object for calculations
+      // We just increment the week number in the formatted string
+      increment = (d: Date) => d; // No-op, since we're using the formatter directly
     } else if (lastDateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
       // Daily format (YYYY-MM-DD)
       const [year, month, day] = lastDateStr.split('-').map(Number);
