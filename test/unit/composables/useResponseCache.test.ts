@@ -1,6 +1,6 @@
-// test/composables/useResponseCache.spec.ts
+// test/unit/composables/useResponseCache.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { useResponseCache } from '../../composables/useResponseCache'
+import { useResponseCache } from '~/composables/useResponseCache'
 
 // Mock localStorage with proper types
 const localStorageMock = (() => {
